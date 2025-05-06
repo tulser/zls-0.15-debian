@@ -1,0 +1,10 @@
+version=4
+
+# FIXME
+#pgpsigurlmangle=s/$/.minisig/, \
+#sigtype=minisig, \
+
+opts="dversionmangle=s/\+dfsg(\.?\d+)?$//, \
+      repacksuffix=+dfsg" \
+      https://github.com/zigtools/zls/archive/refs/tags/ (0.15.[0-9\.]*)\.tar\.gz \
+      debian uupdate

@@ -1,0 +1,74 @@
+#!/usr/bin/make -f
+
+include /usr/share/dpkg/pkg-info.mk
+
+SED_ZLS_VERSION := sed -re 's/([^.]+)\.([^.]+)\..*/\1.\2/'
+SED_ZLS_VERSION_LONG_RE := s/^([^.]+)\.([^.]+)\.([^.]+).*/\1.\2.\3/
+# Accounts for potential nightly/dev releases
+SED_ZLS_VERSION_LONG_NIGHTLY_RE := s/^([^.]+)\.([^.]+)\.([^.]+)~git([^.]+)\.([^\+]+)\+dfsg/\1.\2.\3-dev.\4+\5/
+SED_ZLS_VERSION_LONG = sed -re '/git/bx ; $(SED_ZLS_VERSION_LONG_RE) ; :x ; $(SED_ZLS_VERSION_LONG_NIGHTLY_RE)'
+
+export ZLS_VERSION := $(shell echo '$(DEB_VERSION_UPSTREAM)' | $(SED_ZLS_VERSION))
+export ZLS_LONG_VERSION := $(shell echo '$(DEB_VERSION_UPSTREAM)' | $(SED_ZLS_VERSION_LONG))
+
+export ZIG_FULL_VERSION := $(shell zig version)
+
+export DEB_BUILD_MAINT_OPTIONS := hardening=+all
+
+%:
+	dh $@
+
+export BBASE := obj-$(DEB_HOST_MULTIARCH)
+
+# Allow generated items to persist across builds
+ZLS_BUILD_CACHE_DIR := ../.$(DEB_SOURCE)-cache
+ZLS_BUILD_LIBC_SPEC_PATH := $(ZLS_BUILD_CACHE_DIR)/libc.txt
+
+ZLS_BUILD_OPTS := \
+	-Doptimize=ReleaseFast \
+	-Dpie=true \
+	-Dstrip=true \
+	-Dtarget=$(DEB_HOST_MULTIARCH) \
+	-Dcpu=baseline \
+	-Dversion-string=$(ZIG_FULL_VERSION) \
+	--prefix /usr \
+	--libc $(ZLS_BUILD_LIBC_SPEC_PATH)
+
+override_dh_auto_build: $(ZLS_BUILD_LIBC_SPEC_PATH)
+	DESTDIR=$(BBASE) zig-0.15 build \
+		--cache-dir $(shell realpath $(ZLS_BUILD_CACHE_DIR)/.zig-cache) \
+		--global-cache-dir $(shell realpath $(ZLS_BUILD_CACHE_DIR)/.g-zig-cache) \
+		$(ZLS_BUILD_OPTS) \
+		install
+	dh_auto_build
+
+override_dh_auto_install:
+	mv $(BBASE)/usr/bin/zls $(BBASE)/usr/bin/zls-$(ZLS_VERSION)
+	mkdir -p $(BBASE)/usr/share/man/man1
+	help2man -s 1 -N -n "Unofficial LSP server for Zig" \
+		--no-discard-stderr \
+		-v version $(BBASE)/usr/bin/zls-$(ZLS_VERSION) \
+		-o $(BBASE)/usr/share/man/man1/zls-$(ZLS_VERSION).1
+	
+	mkdir -p debian/tmp
+	mv $(BBASE)/usr debian/tmp
+	dh_auto_install
+
+override_dh_auto_test:
+	DESTDIR=$(BBASE) zig-0.15 build \
+		--cache-dir $(shell realpath $(ZLS_BUILD_CACHE_DIR)/.zig-cache) \
+		--global-cache-dir $(shell realpath $(ZLS_BUILD_CACHE_DIR)/.g-zig-cache) \
+		$(ZLS_BUILD_OPTS) \
+		test
+
+.ONESHELL:
+$(ZLS_BUILD_LIBC_SPEC_PATH):
+	mkdir -p $(ZLS_BUILD_CACHE_DIR)
+	cat <<- EOF > $@
+	include_dir=/usr/include
+	sys_include_dir=/usr/include/$(DEB_HOST_MULTIARCH)
+	crt_dir=/usr/lib/$(DEB_HOST_MULTIARCH)
+	msvc_lib_dir=
+	kernel32_lib_dir=
+	gcc_dir=
+	EOF
