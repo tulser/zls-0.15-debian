@@ -5,13 +5,13 @@ include /usr/share/dpkg/pkg-info.mk
 SED_ZLS_VERSION := sed -re 's/([^.]+)\.([^.]+)\..*/\1.\2/'
 SED_ZLS_VERSION_LONG_RE := s/^([^.]+)\.([^.]+)\.([^.]+).*/\1.\2.\3/
 # Accounts for potential nightly/dev releases
-SED_ZLS_VERSION_LONG_NIGHTLY_RE := s/^([^.]+)\.([^.]+)\.([^.]+)~git([^.]+)\.([^\+]+)\+dfsg/\1.\2.\3-dev.\4+\5/
+SED_ZLS_VERSION_LONG_NIGHTLY_RE := s/^([^.]+)\.([^.]+)\.([^.]+)~git([^.]+)\.([^\+]+)/\1.\2.\3-dev.\4+\5/
 SED_ZLS_VERSION_LONG = sed -re '/git/bx ; $(SED_ZLS_VERSION_LONG_RE) ; :x ; $(SED_ZLS_VERSION_LONG_NIGHTLY_RE)'
 
 export ZLS_VERSION := $(shell echo '$(DEB_VERSION_UPSTREAM)' | $(SED_ZLS_VERSION))
 export ZLS_LONG_VERSION := $(shell echo '$(DEB_VERSION_UPSTREAM)' | $(SED_ZLS_VERSION_LONG))
 
-export ZIG_FULL_VERSION := $(shell zig version)
+export ZIG_VERSION := $(shell zig version)
 
 export DEB_BUILD_MAINT_OPTIONS := hardening=+all
 
@@ -30,7 +30,7 @@ ZLS_BUILD_OPTS := \
 	-Dstrip=true \
 	-Dtarget=$(DEB_HOST_MULTIARCH) \
 	-Dcpu=baseline \
-	-Dversion-string=$(ZIG_FULL_VERSION) \
+	-Dversion-string=$(ZLS_LONG_VERSION) \
 	--prefix /usr \
 	--libc $(ZLS_BUILD_LIBC_SPEC_PATH)
 
